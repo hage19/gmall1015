@@ -18,11 +18,19 @@ import org.apache.spark.streaming.{Seconds, StreamingContext}
 import redis.clients.jedis.Jedis
 
 object DauApp {
-
+//{"area":"guangdong","uid":"8714","os":"ios","ch":"appstore","appid":"gmall1015","mid":"mid_312","type":"startup","vs":"1.2.0","ts":1598532614668}
+//{"area":"sichuan","uid":"4396","os":"andriod","ch":"huawei","appid":"gmall1015","mid":"mid_444","type":"startup","vs":"1.2.0","ts":1598532614709}
+//{"area":"guangdong","uid":"7291","os":"ios","ch":"appstore","appid":"gmall1015","mid":"mid_275","type":"startup","vs":"1.1.1","ts":1598532614736}
+//{"area":"guangdong","uid":"158","os":"ios","ch":"appstore","appid":"gmall1015","mid":"mid_220","type":"startup","vs":"1.2.0","ts":1598532614763}
+//{"area":"shan3xi","uid":"9849","os":"andriod","ch":"wandoujia","appid":"gmall1015","mid":"mid_300","type":"startup","vs":"1.2.0","ts":1598532614796}
+//{"area":"guangdong","uid":"1582","os":"ios","ch":"appstore","appid":"gmall1015","mid":"mid_408","type":"startup","vs":"1.1.1","ts":1598532614841}
+//{"area":"guangdong","uid":"2643","os":"andriod","ch":"wandoujia","appid":"gmall1015","mid":"mid_256","type":"startup","vs":"1.2.0","ts":1598532614863}
+//{"area":"heilongjiang","uid":"342","os":"andriod","ch":"wandoujia","appid":"gmall1015","mid":"mid_25","type":"startup","vs":"1.2.0","ts":1598532614906}
   def main(args: Array[String]): Unit = {
       val sparkConf: SparkConf = new SparkConf().setAppName("dau_app").setMaster("local[*]")
       val ssc = new StreamingContext(sparkConf,Seconds(5))
       val inputDstream: InputDStream[ConsumerRecord[String, String]] = MyKafkaUtil.getKafkaStream(GmallConstant.TOPIC_STARTUP,ssc)
+
 //    inputDstream.foreachRDD{rdd=>
 //      println(rdd.map(_.value()).collect().mkString("\n"))
 //    }
@@ -50,7 +58,7 @@ object DauApp {
       rdd.cache()
 
       println("过滤前："+rdd.count())
-      val jedis: Jedis = new Jedis("hadoop1", 6379)
+      val jedis: Jedis = new Jedis("hadoop102", 6379)
       val curDate: String = new SimpleDateFormat("yyyy-MM-dd").format(new Date())
       val key = "dau:" + curDate
       val dauSet: util.Set[String] = jedis.smembers(key)
@@ -64,18 +72,23 @@ object DauApp {
 
     //把相同uid的日志通过分组取每组第一个的方式 获取下来 达到去重效果
    val startlogGroupbyUidDstream: DStream[(String, Iterable[StartupLog])] = filteredDStream.map(startupLog=>(startupLog.uid,startupLog)).groupByKey()
+
    val startLogDistinctDStream: DStream[StartupLog] = startlogGroupbyUidDstream.flatMap{case (uid,startupLogItr)=>startupLogItr.take(1)}
 
 
     //  3把今天访问过一次的用户记录下来
     //保存当日访问过的用户清单 =》 redis
     startLogDistinctDStream.foreachRDD{rdd=>
+
+
       rdd.foreachPartition{startuplogItr=>
         val list: List[StartupLog] = startuplogItr.toList
+
          println(list.mkString("\n"))
-        val jedis: Jedis = new Jedis("hadoop1", 6379)
+        val jedis: Jedis = new Jedis("hadoop102", 6379)
         // 设计 redis保存的key     key: dau:2019-04-15 value( set )  uid    命令： sadd
         list.foreach{startupLog=>
+
           val key="dau:"+startupLog.logDate
           jedis.sadd(key,startupLog.uid)
         }
@@ -91,7 +104,6 @@ object DauApp {
 
     ssc.start()
     ssc.awaitTermination()
-
 
   }
 

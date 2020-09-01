@@ -31,6 +31,7 @@ public class LoggerController {
         JSONObject logJsonObj = JSON.parseObject(log);
         logJsonObj.put("ts",System.currentTimeMillis());
         logger.info(logJsonObj.toJSONString());
+        System.out.println(logJsonObj.toJSONString());
 
         if( "startup".equals(logJsonObj.getString("type")) ){
             kafkaTemplate.send(GmallConstant.TOPIC_STARTUP,logJsonObj.toJSONString());
